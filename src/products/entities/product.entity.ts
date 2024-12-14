@@ -17,7 +17,7 @@ export class Product {
     price:number
 
     @Column({
-        type:'float',
+        type:'text',
         nullable:true
     })
     description:string;
