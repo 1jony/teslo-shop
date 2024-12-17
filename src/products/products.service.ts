@@ -5,7 +5,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from './entities/product.entity';
 import { Repository } from 'typeorm';
 import { PaginationDTO } from 'src/common/dtos/pagination.dto';
-import { skip } from 'node:test';
+import {validate  as IsUUID} from'uuid'
+import { title } from 'process';
 
 
 @Injectable()
@@ -40,8 +41,18 @@ export class ProductsService {
     return ""
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} product`;
+  findOne(term: string) {
+    let producto ;
+    if(IsUUID(term)){
+     producto = this.ProductRepository.findOneBy({id:term})
+    }else{
+      const queryBuilder =  this.ProductRepository.createQueryBuilder()
+      producto = queryBuilder.where('title:=title or slug :=slug', {
+        title:term.toLowerCase(),
+        slug:term.toLowerCase()
+      }).getOne();
+    }
+    return producto;
   }
 
   update(id: number, updateProductDto: UpdateProductDto) {
@@ -49,6 +60,7 @@ export class ProductsService {
   }
 
   remove(id: number) {
+
     return `This action removes a #${id} product`;
   }
   handleDbExeptions (error:any){
