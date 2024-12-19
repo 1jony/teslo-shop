@@ -1,4 +1,4 @@
-import { IsArray, IsIn, IsInt, IsNumber, IsOptional, IsPositive,
+import { isArray, IsArray, IsIn, IsInt, IsNumber, IsOptional, IsPositive,
      IsString, MinLength 
     } from "class-validator";
 
@@ -28,6 +28,11 @@ export class CreateProductDto {
     @IsString({each:true})
     @IsArray()
     size:string[];
+
+    @IsString({each:true})
+    @IsArray()
+    @IsOptional()
+    tags:string[]
 
     @IsIn(['men','woman','kids','unisex'])
     gender:string
