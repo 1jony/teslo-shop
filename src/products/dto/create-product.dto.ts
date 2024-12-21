@@ -34,6 +34,11 @@ export class CreateProductDto {
     @IsOptional()
     tags:string[]
 
+    @IsString({each:true})
+    @IsArray()
+    @IsOptional()
+    images:string[]
+
     @IsIn(['men','woman','kids','unisex'])
     gender:string
 }
