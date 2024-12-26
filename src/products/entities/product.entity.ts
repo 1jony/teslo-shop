@@ -47,13 +47,13 @@ export class Product {
     })
     tags:string[]
     
-    @OneToMany(
-        ()=> ProductImage,
-        (productImage)=>productImage.id,{
-            cascade: true
-        }
+       // images
+       @OneToMany(
+        () => ProductImage,
+        (productImage) => productImage.product,
+        { cascade: true, eager: true }
     )
-    images?: ProductImage[]
+    images?: ProductImage[];
 
     @BeforeInsert()
     checkSlugInsert() {
