@@ -3,7 +3,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Product,ProductImage } from './entities';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { PaginationDTO } from 'src/common/dtos/pagination.dto';
 import {validate  as isUUID} from'uuid'
 
@@ -15,7 +15,8 @@ export class ProductsService {
     @InjectRepository(Product)
     private readonly  ProductRepository:Repository<Product>,
     @InjectRepository(ProductImage)
-    private readonly ProductImageRepository: Repository<ProductImage>
+    private readonly ProductImageRepository: Repository<ProductImage>,
+    private readonly dataSource : DataSource
   ){}
   async create(createProductDto: CreateProductDto) {
     try {
@@ -44,19 +45,28 @@ export class ProductsService {
     }
     return ""
   }
+  async findOnePlain( term: string ) {
+    const { images = [], ...rest } = await this.findOne( term );
+    return {
+      ...rest,
+      images: images.map( image => image.url )
+    }
+  }
+  async findOne( term: string ) {
 
-  async findOne(term: string) {
     let product: Product;
 
     if ( isUUID(term) ) {
       product = await this.ProductRepository.findOneBy({ id: term });
     } else {
-      const queryBuilder = this.ProductRepository.createQueryBuilder(); 
+      const queryBuilder = this.ProductRepository.createQueryBuilder('prod'); 
       product = await queryBuilder
         .where('UPPER(title) =:title or slug =:slug', {
           title: term.toUpperCase(),
           slug: term.toLowerCase(),
-        }).getOne();
+        })
+        .leftJoinAndSelect('prod.images','prodImages')
+        .getOne();
     }
 
 
@@ -65,31 +75,53 @@ export class ProductsService {
 
     return product;
   }
-
   async  update(id: string, updateProductDto: UpdateProductDto) {
-    const product = await this.ProductRepository.preload({
-      id:id,
-      ...updateProductDto,
-      images:[]
-    })
+    const {images,...toUpdate}= updateProductDto
+    const product = await this.ProductRepository.preload({id,...toUpdate})
 
-  if(product){ 
-    try{
-      await this.ProductRepository.save(product)
+  if(!product) throw new NotFoundException('Product whitch id: '+id+' not found.')
+  // Create query runner
+    const QueryRunner =this.dataSource.createQueryRunner()
+    await QueryRunner.connect;
+    await QueryRunner.startTransaction()
+    try{ 
+      if(images){
+        await QueryRunner.manager.delete(ProductImage,{product:{id}});
+        product.images = images.map(
+          image => this.ProductImageRepository.create({url:image})
+        );
+      }
+      // await this.ProductRepository.save(product)
+      await QueryRunner.manager.save(product)
+      await QueryRunner.commitTransaction();
+      await QueryRunner.release();
+      return this.findOne(id);
     }
     catch(error){
+      await QueryRunner.rollbackTransaction();
+      await QueryRunner.release();
       this.handleDbExeptions(error)
     }
-  }else{
-    throw new NotFoundException('Product whitch id: '+id+' not found.')
-  }
+  
     
     return `This action updates a #${product} product`;
   }
 
-  remove(id: number) {
+  async remove(id: string) {
+    const product = await this.findOne(id);
+    await  this.ProductRepository.remove(product);
+     return `This action removes a #${id} product`;
+  }
 
-    return `This action removes a #${id} product`;
+  async handleRemoveAllProduct (){
+    const query = await this.ProductRepository.createQueryBuilder('product');
+    try{
+        return await query.delete()
+        .where({})
+        .execute();
+    }catch(error){
+      this.handleDbExeptions(error)
+    }
   }
   handleDbExeptions (error:any){
     if(error.code === '23505'){
