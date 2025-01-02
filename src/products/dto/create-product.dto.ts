@@ -27,7 +27,8 @@ export class CreateProductDto {
 
     @IsString({each:true})
     @IsArray()
-    size:string[];
+    @IsOptional()
+    sizes:string[];
 
     @IsString({each:true})
     @IsArray()
